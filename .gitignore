@@ -9,11 +9,6 @@ node_modules/
 server/.env
 client/.env
 
-# Build outputs
-dist/
-client/dist/
-build/
-
 # Backups & logs
 backup-*/
 *.log
