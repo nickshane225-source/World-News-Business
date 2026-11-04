@@ -24,7 +24,13 @@ const ALLOWED_ORIGINS = new Set([
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false,
+  })
+);
 
 // Production: serve the built React app static assets before CORS
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
