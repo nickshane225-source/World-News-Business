@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider, ToastProvider } from "./components/ui.jsx";
 import Home from "./pages/public/Home.jsx";
 import ArticlePage from "./pages/public/ArticlePage.jsx";
@@ -11,10 +12,33 @@ import Articles from "./pages/admin/Articles.jsx";
 import ArticleEditor from "./pages/admin/ArticleEditor.jsx";
 import Settings from "./pages/admin/Settings.jsx";
 
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
+
+function GoogleAnalyticsTracker() {
+  const location = useLocation();
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID || !import.meta.env.PROD) return;
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    if (typeof window !== "undefined" && typeof window.gtag === "function") {
+      window.gtag("config", GA_MEASUREMENT_ID, {
+        page_path: location.pathname + location.search,
+      });
+    }
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
+        <GoogleAnalyticsTracker />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<AboutPage />} />

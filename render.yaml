@@ -12,6 +12,8 @@ services:
         value: "true"
       - key: SITE_URL
         value: https://worldnews.business
+      - key: VITE_GA_MEASUREMENT_ID
+        value: G-WB6ZH3XP5W
       - key: GEMINI_TEXT_MODEL
         value: gemini-3.6-flash
       - key: GEMINI_IMAGE_MODEL
