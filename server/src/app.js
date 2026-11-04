@@ -18,16 +18,32 @@ const ALLOWED_ORIGINS = new Set([
   "http://127.0.0.1:5173",
   "http://localhost:5000",
   "http://127.0.0.1:5000",
+  ...(process.env.SITE_URL ? [process.env.SITE_URL.replace(/\/$/, "")] : []),
+  ...(process.env.RENDER_EXTERNAL_URL ? [process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "")] : []),
 ]);
 
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+
+// Production: serve the built React app static assets before CORS
+const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
+if (fs.existsSync(dist)) {
+  app.use(express.static(dist, { index: false }));
+}
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || ALLOWED_ORIGINS.has(origin)) return cb(null, true);
-      return cb(new Error("Not allowed by CORS"));
+      if (
+        !origin ||
+        ALLOWED_ORIGINS.has(origin) ||
+        origin.endsWith(".onrender.com") ||
+        origin.endsWith(".worldnews.business")
+      ) {
+        return cb(null, true);
+      }
+      return cb(null, false);
     },
   })
 );
@@ -44,10 +60,12 @@ app.get("/robots.txt", (_, res) =>
     .send(`User-agent: *\nDisallow: /admin\nSitemap: ${process.env.SITE_URL || "https://worldnews.business"}/sitemap.xml\n`)
 );
 
-// Production: serve the built React app
-const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
 if (fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get("*", (req, res, next) => (req.path.startsWith("/api") ? next() : res.sendFile(path.join(dist, "index.html"))));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/assets/")) return next();
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(dist, "index.html"));
+  });
 }
+
 export default app;

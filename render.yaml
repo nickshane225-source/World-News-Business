@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: world-news-business
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_WORKER
+        value: "true"
+      - key: SITE_URL
+        value: https://worldnews.business
+      - key: GEMINI_TEXT_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_IMAGE_MODEL
+        value: gemini-3.1-flash-image
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

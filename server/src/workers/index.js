@@ -82,13 +82,29 @@ export function startWorker() {
   // Always check due scheduled articles every 60s even if Redis is offline
   setInterval(() => publishScheduled().catch(() => {}), 60 * 1000).unref();
 
-  const worker = new Worker("pipeline", runJob, { connection, concurrency: 2 });
+  if (connection.status === "ready") {
+    const worker = new Worker("pipeline", runJob, { connection, concurrency: 2 });
+    worker.on("error", () => {});
+    worker.on("failed", async (job, err) => {
+      console.error(`Job ${job?.name} failed:`, err.message);
+      if (job?.name === "generateTopic" && job.data?.topicId)
+        await supabase.from("trending_topics").update({ status: "failed" }).eq("id", job.data.topicId);
+    });
+    console.log("Worker started (Redis BullMQ)");
+    return worker;
+  }
 
-  worker.on("failed", async (job, err) => {
-    console.error(`Job ${job?.name} failed:`, err.message);
-    if (job?.name === "generateTopic" && job.data?.topicId)
-      await supabase.from("trending_topics").update({ status: "failed" }).eq("id", job.data.topicId);
+  connection.once("ready", () => {
+    const worker = new Worker("pipeline", runJob, { connection, concurrency: 2 });
+    worker.on("error", () => {});
+    worker.on("failed", async (job, err) => {
+      console.error(`Job ${job?.name} failed:`, err.message);
+      if (job?.name === "generateTopic" && job.data?.topicId)
+        await supabase.from("trending_topics").update({ status: "failed" }).eq("id", job.data.topicId);
+    });
+    console.log("Worker attached to Redis BullMQ");
   });
-  console.log("Worker started");
-  return worker;
+
+  console.log("Worker started (in-process fallback active)");
+  return null;
 }
