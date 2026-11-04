@@ -7,7 +7,7 @@ import {
 import { api, fmt } from "../../api.js";
 import {
   Badge, Button, EditorialImage, Skeleton, EmptyState,
-  useToast, timeAgo, estimateReadTime
+  useToast, timeAgo, estimateReadTime, AdSenseBanner
 } from "../../components/ui.jsx";
 import { Header, Footer, SITE, SITE_URL, setSeoMeta } from "./Home.jsx";
 
@@ -273,6 +273,7 @@ export default function ArticlePage() {
             className="prose prose-slate prose-lg max-w-none dark:prose-invert prose-headings:font-serif prose-headings:font-bold prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-blockquote:border-indigo-500"
             dangerouslySetInnerHTML={{ __html: contentWithIds }}
           />
+          <AdSenseBanner className="mt-8" />
 
           {/* AI-Assisted Editorial Disclosure Box */}
           <div className="mt-10 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">

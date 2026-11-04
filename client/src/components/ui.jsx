@@ -314,3 +314,26 @@ export function estimateSourceCount(article) {
   const seed = (article?.id || article?.slug || "a").charCodeAt(0);
   return 3 + (seed % 4);
 }
+
+/* ---------------- Google AdSense Responsive Unit ---------------- */
+export function AdSenseBanner({ format = "auto", className = "" }) {
+  useEffect(() => {
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch {
+      // Ignore if AdSense is blocked by adblocker or still initializing
+    }
+  }, []);
+
+  return (
+    <div className={`my-6 overflow-hidden text-center ${className}`} aria-label="Advertisement">
+      <ins
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-client="ca-pub-1052993488526571"
+        data-ad-format={format}
+        data-full-width-responsive="true"
+      />
+    </div>
+  );
+}
