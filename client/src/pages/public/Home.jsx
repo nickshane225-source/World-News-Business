@@ -437,18 +437,18 @@ export default function Home() {
             {/* Large Hero Story */}
             <Link
               to={`/a/${hero.slug}`}
-              className="card-3d group relative flex flex-col overflow-hidden !p-0 lg:col-span-8"
+              className="card-3d group relative flex flex-col overflow-hidden !bg-slate-950 !p-0 lg:col-span-8"
             >
-              <div className="relative overflow-hidden">
+              <div className="relative flex h-full min-h-[320px] flex-1 flex-col overflow-hidden sm:min-h-[420px]">
                 <EditorialImage
                   src={hero.featured_image_url}
                   alt={hero.image_alt || hero.title}
                   category={hero.category}
                   priority
-                  className="transition-transform duration-700 group-hover:scale-[1.03]"
+                  className="h-full w-full flex-1 transition-transform duration-700 group-hover:scale-[1.03]"
                 />
                 <div className="pointer-events-none absolute inset-0 z-20 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-transparent" />
-                <div className="  absolute bottom-0 left-0 right-0 z-20 p-6 sm:p-8 text-white">
+                <div className="absolute bottom-0 left-0 right-0 z-20 p-6 sm:p-8 text-white">
                   <Badge tone="brand" className="mb-3 uppercase tracking-widest">{hero.category}</Badge>
                   <h1 className="font-serif text-2xl font-bold leading-tight sm:text-4xl group-hover:text-indigo-200 transition">
                     {hero.title}
