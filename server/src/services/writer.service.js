@@ -114,9 +114,9 @@ STRICT EDITORIAL & FACT-CHECKING RULES:
    - metaDescription: 120–155 characters (never exceed 160 characters).
    - excerpt: 130–190 characters summarizing the dispatch.
    - faqs: 4 substantive, reader-focused Q&As.
-6. SAFE EDITORIAL IMAGE PROMPT:
-   - imagePrompt: Describe a photorealistic 16:9 editorial photograph of an architectural space, hardware system, laboratory, infrastructure, or symbolic object representing the story. NEVER depict real identifiable people (politicians, executives, celebrities) and never include text, logos, or watermarks.
-   - imageAlt: Clear, accessible description of the scene (under 120 characters).
+6. REALISTIC NEWS PHOTO PROMPT:
+   - imagePrompt: Describe ONE realistic, camera-photographable news scene that a reader would instantly connect with this story — a real place, real objects, and anonymous ordinary people doing something relevant (e.g. "a pharmacist handing a prescription bag to a customer at a busy drugstore counter", "technicians walking between rows of server racks in a large data center"). Avoid abstract, futuristic, neon, or symbolic concepts. NEVER depict real identifiable people (politicians, executives, celebrities) and never include text, logos, or watermarks.
+   - imageAlt: Clear, accessible description of that scene (under 120 characters).
 
 GROUNDED RESEARCH NOTES:
 ${notes}

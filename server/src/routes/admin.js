@@ -5,7 +5,7 @@ import { slugify, wordCount } from "../lib/text.js";
 import { enqueue } from "../queues/index.js";
 import { getSettings, updateSettings } from "../services/settings.service.js";
 import { publishArticle, clean, qualityCheck } from "../services/pipeline.service.js";
-import { generateFeaturedImage } from "../services/image.service.js";
+import { generateFeaturedImageDetailed, applyPhotoCredit } from "../services/image.service.js";
 import { getVisitorStats } from "../services/analytics.service.js";
 import { tick } from "../workers/index.js";
 
@@ -136,17 +136,26 @@ r.put("/articles/:id", wrap(async (req, res) => {
 r.post("/articles/:id/regenerate-image", wrap(async (req, res) => {
   const { data: art, error } = await supabase.from("articles").select("*").eq("id", req.params.id).maybeSingle();
   if (error || !art) return res.status(404).json({ error: "Article not found" });
-  const imageUrl = await generateFeaturedImage(
-    { title: art.title, category: art.category || "Technology", keyword: art.focus_keyword || "", rawPrompt: req.body?.prompt || "" },
+  const img = await generateFeaturedImageDetailed(
+    {
+      title: art.title,
+      category: art.category || "Technology",
+      keyword: art.focus_keyword || "",
+      rawPrompt: req.body?.prompt || "",
+      excerpt: art.excerpt || "",
+      contentHtml: art.content_html || "",
+    },
     art.slug
   );
-  if (!imageUrl) return res.status(500).json({ error: "Image generation failed — check Gemini quota or try again." });
-  const alt = art.image_alt || `${art.title} (AI-generated image)`;
+  if (!img?.url) return res.status(500).json({ error: "Image generation failed — check Gemini quota or try again." });
+  const imageUrl = img.url;
+  const alt = (img.alt || art.image_alt || art.title).slice(0, 160);
+  const content_html = clean(applyPhotoCredit(art.content_html || "", img.credit));
   const { data: sources } = await supabase.from("article_sources").select("title,url").eq("article_id", req.params.id);
   const qc = await qualityCheck({ ...art, featured_image_url: imageUrl }, sources || []);
   const { data: updated } = await supabase
     .from("articles")
-    .update({ featured_image_url: imageUrl, image_alt: alt, quality_notes: qc.notes || null, updated_at: new Date().toISOString() })
+    .update({ featured_image_url: imageUrl, image_alt: alt, content_html, quality_notes: qc.notes || null, updated_at: new Date().toISOString() })
     .eq("id", req.params.id)
     .select()
     .single();

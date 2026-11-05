@@ -4,7 +4,7 @@ import { slugify, wordCount, similarity } from "../lib/text.js";
 import { textModel } from "../lib/gemini.js";
 import { getSettings } from "./settings.service.js";
 import { researchNotes, writeArticle } from "./writer.service.js";
-import { generateFeaturedImage } from "./image.service.js";
+import { generateFeaturedImageDetailed, applyPhotoCredit } from "./image.service.js";
 
 export const clean = (html) => sanitizeHtml(html, {
   allowedTags: ["h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "a", "blockquote", "br"],
@@ -37,11 +37,21 @@ export async function createArticle({ title, keyword, angle, category, topicId }
     let slug = slugify(a.title), n = 1;
     while ((await supabase.from("articles").select("id").eq("slug", slug).maybeSingle()).data) slug = `${slugify(a.title)}-${++n}`;
 
+    // Featured image: Gemini reads the finished article, plans a realistic news-photo scene,
+    // then generates a photorealistic image or selects a vision-verified real CC photograph.
     let image = null;
     if (settings.generate_images) {
       try {
-        image = await generateFeaturedImage(
-          { title: a.title, category: category || "Technology", keyword: a.focusKeyword || keyword, rawPrompt: a.imagePrompt },
+        image = await generateFeaturedImageDetailed(
+          {
+            title: a.title,
+            category: category || "Technology",
+            keyword: a.focusKeyword || keyword,
+            rawPrompt: a.imagePrompt,
+            excerpt: a.excerpt,
+            contentHtml: a.contentHtml,
+            model: settings.model,
+          },
           slug
         );
       } catch (e) {
@@ -49,12 +59,14 @@ export async function createArticle({ title, keyword, angle, category, topicId }
       }
     }
 
-    const html = clean(a.contentHtml);
+    const html = clean(applyPhotoCredit(a.contentHtml, image?.credit));
     const row = {
       title: a.title, slug, meta_title: a.metaTitle, meta_description: (a.metaDescription || "").slice(0, 165),
       focus_keyword: a.focusKeyword, secondary_keywords: a.secondaryKeywords || [], excerpt: a.excerpt,
       content_html: html, faqs: a.faqs || [], category: category || "Technology",
-      featured_image_url: image, image_alt: a.imageAlt || `${a.title} (AI-generated image)`, topic_id: topicId || null, word_count: wordCount(html),
+      featured_image_url: image?.url || null,
+      image_alt: (image?.alt || a.imageAlt || a.title).slice(0, 160),
+      topic_id: topicId || null, word_count: wordCount(html),
     };
     const qc = await qualityCheck(row, sources);
     const delayMins = Number(settings.publish_delay_minutes || 0);
