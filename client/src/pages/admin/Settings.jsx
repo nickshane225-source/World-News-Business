@@ -66,7 +66,16 @@ export default function Settings() {
     if (!String(s.niche || "").trim()) {
       throw new Error("Editorial niche cannot be empty.");
     }
-    return { ...s, daily_target, active_from, active_to };
+    const interval_minutes = Number(s.interval_minutes ?? 30);
+    const publish_delay_minutes = Number(s.publish_delay_minutes ?? 0);
+    return {
+      ...s,
+      daily_target,
+      active_from,
+      active_to,
+      interval_minutes: [0, 10, 20, 30, 40, 60].includes(interval_minutes) ? interval_minutes : 30,
+      publish_delay_minutes: [0, 10, 20, 30, 40, 60].includes(publish_delay_minutes) ? publish_delay_minutes : 0,
+    };
   };
 
   const commitSave = async () => {
@@ -285,6 +294,51 @@ export default function Settings() {
             </div>
           </div>
         )}
+
+        {/* Automatic AI Post Interval & Publish Delay Controls */}
+        <div className="grid gap-4 rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-4 dark:border-indigo-500/25 dark:bg-indigo-950/20 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              <Clock className="h-3.5 w-3.5 text-indigo-500" /> Automatic AI Post Interval
+            </span>
+            <select
+              className="input font-semibold"
+              value={Number(s.interval_minutes ?? 30)}
+              onChange={num("interval_minutes")}
+            >
+              <option value={10}>Every 10 Minutes</option>
+              <option value={20}>Every 20 Minutes</option>
+              <option value={30}>Every 30 Minutes</option>
+              <option value={40}>Every 40 Minutes</option>
+              <option value={60}>Every 1 Hour (60 Minutes)</option>
+              <option value={0}>Daily Target Quota Only (Hourly Check)</option>
+            </select>
+            <span className="mt-1 block text-[11px] text-slate-500">
+              How often the AI engine writes a new article automatically.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+              <Clock className="h-3.5 w-3.5 text-emerald-500" /> Auto-Publish Schedule Delay
+            </span>
+            <select
+              className="input font-semibold"
+              value={Number(s.publish_delay_minutes ?? 0)}
+              onChange={num("publish_delay_minutes")}
+            >
+              <option value={0}>Publish Immediately (0 min delay)</option>
+              <option value={10}>Publish 10 Minutes Later</option>
+              <option value={20}>Publish 20 Minutes Later</option>
+              <option value={30}>Publish 30 Minutes Later</option>
+              <option value={40}>Publish 40 Minutes Later</option>
+              <option value={60}>Publish 1 Hour Later (60 min)</option>
+            </select>
+            <span className="mt-1 block text-[11px] text-slate-500">
+              Publish new AI posts immediately or schedule them to go live 10/20/30/40/60m later.
+            </span>
+          </label>
+        </div>
 
         {/* Schedule & Quota Numbers */}
         <div className="grid gap-4 sm:grid-cols-3">

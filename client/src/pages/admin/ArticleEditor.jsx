@@ -234,29 +234,60 @@ export default function ArticleEditor() {
         {/* Left Column: Form Inputs + HTML Editor */}
         <div className="space-y-6 lg:col-span-7">
           {/* Schedule Bar */}
-          <Card className="flex flex-wrap items-end justify-between gap-3">
-            <div className="flex-1 min-w-[220px]">
-              <Field label="Schedule Automatic Publication" hint="Checked every 60s">
-                <input
-                  type="datetime-local"
-                  className="input"
-                  value={when}
-                  onChange={(e) => setWhen(e.target.value)}
-                />
-              </Field>
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex-1 min-w-[220px]">
+                <Field label="Schedule Automatic Publication" hint="Checked every 30s">
+                  <input
+                    type="datetime-local"
+                    className="input"
+                    value={when}
+                    onChange={(e) => setWhen(e.target.value)}
+                  />
+                </Field>
+              </div>
+              <Button
+                variant="ghost"
+                disabled={busy || !when}
+                onClick={() =>
+                  run(
+                    post("schedule", { scheduled_at: new Date(when).toISOString() }),
+                    `Scheduled for ${new Date(when).toLocaleString()}`
+                  )
+                }
+              >
+                <CalendarClock className="h-4 w-4 text-indigo-500" /> Schedule publish
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              disabled={busy || !when}
-              onClick={() =>
-                run(
-                  post("schedule", { scheduled_at: new Date(when).toISOString() }),
-                  `Scheduled for ${new Date(when).toLocaleString()}`
-                )
-              }
-            >
-              <CalendarClock className="h-4 w-4 text-indigo-500" /> Schedule publish
-            </Button>
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+              <span className="mr-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Auto-Publish Later:
+              </span>
+              {[
+                { m: 10, label: "+10m Later" },
+                { m: 20, label: "+20m Later" },
+                { m: 30, label: "+30m Later" },
+                { m: 40, label: "+40m Later" },
+                { m: 60, label: "+1 Hour Later" },
+              ].map((opt) => (
+                <button
+                  key={opt.m}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    const target = new Date(Date.now() + opt.m * 60 * 1000);
+                    setWhen(toLocalInput(target.toISOString()));
+                    run(
+                      post("schedule", { scheduled_at: target.toISOString() }),
+                      `Scheduled to publish automatically in ${opt.m === 60 ? "1 hour" : `${opt.m} minutes`} (${target.toLocaleTimeString()})`
+                    );
+                  }}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 transition hover:border-indigo-500 hover:bg-indigo-500 hover:text-white dark:border-slate-700 dark:bg-ink-900 dark:text-slate-200 dark:hover:border-indigo-500 dark:hover:bg-indigo-600"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </Card>
 
           {/* Metadata & SEO Fields */}

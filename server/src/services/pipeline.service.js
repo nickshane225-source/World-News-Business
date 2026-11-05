@@ -57,9 +57,20 @@ export async function createArticle({ title, keyword, angle, category, topicId }
       featured_image_url: image, image_alt: a.imageAlt || `${a.title} (AI-generated image)`, topic_id: topicId || null, word_count: wordCount(html),
     };
     const qc = await qualityCheck(row, sources);
-    const publishNow = settings.mode === "auto";
-    row.status = publishNow ? "PUBLISHED" : "PENDING_APPROVAL";
-    row.published_at = publishNow ? new Date().toISOString() : null;
+    const delayMins = Number(settings.publish_delay_minutes || 0);
+    if (settings.mode === "auto") {
+      if (delayMins > 0) {
+        row.status = "SCHEDULED";
+        row.scheduled_at = new Date(Date.now() + delayMins * 60 * 1000).toISOString();
+        row.published_at = null;
+      } else {
+        row.status = "PUBLISHED";
+        row.published_at = new Date().toISOString();
+      }
+    } else {
+      row.status = "PENDING_APPROVAL";
+      row.published_at = null;
+    }
     row.quality_notes = qc.notes || null;
 
     const { data, error } = await supabase.from("articles").insert(row).select().single();

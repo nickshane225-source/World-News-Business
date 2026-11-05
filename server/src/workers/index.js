@@ -2,12 +2,16 @@ import { Worker } from "bullmq";
 import { connection } from "../lib/redis.js";
 import { supabase } from "../lib/supabase.js";
 import { enqueue, setFallbackRunner } from "../queues/index.js";
-import { getSettings } from "../services/settings.service.js";
+import { getSettings, saveSchedulerExtra } from "../services/settings.service.js";
 import { discoverTopics } from "../services/research.service.js";
 import { createArticle, generateFromTopic, publishArticle } from "../services/pipeline.service.js";
 
 export async function publishScheduled() {
-  const { data: due } = await supabase.from("articles").select("id").eq("status", "SCHEDULED").lte("scheduled_at", new Date().toISOString());
+  const { data: due } = await supabase
+    .from("articles")
+    .select("id")
+    .eq("status", "SCHEDULED")
+    .lte("scheduled_at", new Date().toISOString());
   let count = 0;
   for (const a of due || []) {
     await publishArticle(a.id);
@@ -21,10 +25,13 @@ export async function tick() {
   const publishedDue = await publishScheduled();
   const s = await getSettings();
 
-  // 2) In auto mode, automatically approve & publish any PENDING_APPROVAL or APPROVED articles waiting in the queue
+  // 2) In auto mode (when publish_delay_minutes is 0), automatically approve & publish any waiting articles
   let publishedApproved = 0;
-  if (s.mode === "auto") {
-    const { data: waiting } = await supabase.from("articles").select("id").in("status", ["APPROVED", "PENDING_APPROVAL"]);
+  if (s.mode === "auto" && Number(s.publish_delay_minutes || 0) === 0) {
+    const { data: waiting } = await supabase
+      .from("articles")
+      .select("id")
+      .in("status", ["APPROVED", "PENDING_APPROVAL"]);
     for (const a of waiting || []) {
       await publishArticle(a.id);
       publishedApproved++;
@@ -38,38 +45,115 @@ export async function tick() {
       : "Automation is disabled — enable 'Enable automatic research & article writing' and Save settings first.";
   }
 
-  // 3) Generate toward the daily target (only inside active hours)
+  // 3) Check active hours window
   const hour = new Date().getHours();
   if (hour < s.active_from || hour >= s.active_to) {
     return `Outside active hours (current server hour: ${hour}:00, active window: ${s.active_from}:00–${s.active_to}:00).`;
   }
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const { count } = await supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", start.toISOString());
+
+  // 4) Check daily target quota
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("articles")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", start.toISOString());
   const remaining = s.daily_target - (count || 0);
   if (remaining <= 0) {
     return `Daily target already reached (${count || 0}/${s.daily_target} articles generated today).`;
   }
 
-  const slots = Math.max(1, (s.active_to - hour) * 2); // ticks left today
-  const batch = Math.min(remaining, Math.max(1, Math.ceil(remaining / slots)));
-  const { data: topics } = await supabase.from("trending_topics").select("id").eq("status", "new").order("score", { ascending: false }).limit(batch);
+  // Record this automation run timestamp so interval countdown resets
+  await saveSchedulerExtra({ last_auto_run_at: new Date().toISOString() });
+
+  // When interval mode (10/20/30/40/60m) is active, generate 1 article per interval tick; otherwise pace by slots
+  const slots = Math.max(1, (s.active_to - hour) * 2);
+  const batch =
+    Number(s.interval_minutes || 0) > 0
+      ? 1
+      : Math.min(remaining, Math.max(1, Math.ceil(remaining / slots)));
+
+  let { data: topics } = await supabase
+    .from("trending_topics")
+    .select("id")
+    .eq("status", "new")
+    .order("score", { ascending: false })
+    .limit(batch);
+
+  if (!topics?.length) {
+    try {
+      await discoverTopics(s);
+      const refreshed = await supabase
+        .from("trending_topics")
+        .select("id")
+        .eq("status", "new")
+        .order("score", { ascending: false })
+        .limit(batch);
+      topics = refreshed.data || [];
+    } catch {
+      await enqueue("research", {}, { jobId: `research-${Date.now()}` });
+      return "No unused trending topics available — queued a new topic discovery job.";
+    }
+  }
+
   if (!topics?.length) {
     await enqueue("research", {}, { jobId: `research-${Date.now()}` });
-    return "No unused trending topics available — queued a new topic discovery job.";
+    return "Queued topic discovery job.";
   }
-  for (const t of topics) await enqueue("generateTopic", { topicId: t.id }, { jobId: `gen-${t.id}-${Date.now()}` });
-  const extra = (publishedDue + publishedApproved) > 0 ? ` (also published ${publishedDue + publishedApproved} article(s))` : "";
-  return `Queued ${topics.length} topic(s) for article generation${extra}.`;
+
+  for (const t of topics) {
+    await enqueue("generateTopic", { topicId: t.id }, { jobId: `gen-${t.id}-${Date.now()}` });
+  }
+  const extra =
+    publishedDue + publishedApproved > 0
+      ? ` (also published ${publishedDue + publishedApproved} article(s))`
+      : "";
+  return `Queued ${topics.length} topic(s) for AI article generation${extra}.`;
+}
+
+let intervalCheckRunning = false;
+export async function checkIntervalTick() {
+  if (intervalCheckRunning) return;
+  intervalCheckRunning = true;
+  try {
+    await publishScheduled();
+    const s = await getSettings();
+    const intervalMins = Number(s.interval_minutes || 0);
+    if (!s.automation_enabled || intervalMins <= 0) return;
+
+    const lastRunMs = s.last_auto_run_at ? new Date(s.last_auto_run_at).getTime() : 0;
+    const elapsedMs = Date.now() - lastRunMs;
+    if (elapsedMs >= intervalMins * 60 * 1000) {
+      // Avoid overlapping if an article is already generating right now
+      const { count: generatingCount } = await supabase
+        .from("trending_topics")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "generating");
+      if ((generatingCount || 0) === 0) {
+        await tick();
+      }
+    }
+  } catch (e) {
+    console.warn("Interval check warning:", e.message);
+  } finally {
+    intervalCheckRunning = false;
+  }
 }
 
 async function runJob(job) {
   switch (job.name) {
-    case "tick": return tick();
-    case "publishScheduled": return publishScheduled();
-    case "research": return discoverTopics(await getSettings());
-    case "generateTopic": return generateFromTopic(job.data.topicId);
-    case "generateManual": return createArticle(job.data);
-    default: throw new Error(`Unknown job ${job.name}`);
+    case "tick":
+      return tick();
+    case "publishScheduled":
+      return publishScheduled();
+    case "research":
+      return discoverTopics(await getSettings());
+    case "generateTopic":
+      return generateFromTopic(job.data.topicId);
+    case "generateManual":
+      return createArticle(job.data);
+    default:
+      throw new Error(`Unknown job ${job.name}`);
   }
 }
 
@@ -77,10 +161,15 @@ setFallbackRunner(runJob);
 
 export function startWorker() {
   // Recover any topics left stuck in 'generating' if server restarted mid-job
-  supabase.from("trending_topics").update({ status: "failed" }).eq("status", "generating").then(() => {}).catch(() => {});
+  supabase
+    .from("trending_topics")
+    .update({ status: "failed" })
+    .eq("status", "generating")
+    .then(() => {})
+    .catch(() => {});
 
-  // Always check due scheduled articles every 60s even if Redis is offline
-  setInterval(() => publishScheduled().catch(() => {}), 60 * 1000).unref();
+  // Check due scheduled articles AND interval auto-post timer (10/20/30/40/60m) every 30s
+  setInterval(() => checkIntervalTick().catch(() => {}), 30 * 1000).unref();
 
   if (connection.status === "ready") {
     const worker = new Worker("pipeline", runJob, { connection, concurrency: 2 });

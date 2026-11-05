@@ -1,7 +1,17 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { recordVisit } from "../services/analytics.service.js";
 const r = Router();
 const LIST = "id,title,slug,excerpt,category,featured_image_url,image_alt,published_at";
+
+r.post("/track", async (req, res) => {
+  try {
+    const out = await recordVisit(req, req.body || {});
+    res.json(out);
+  } catch (e) {
+    res.status(200).json({ ok: false, error: e.message });
+  }
+});
 
 r.get("/articles", async (req, res) => {
   const page = Math.max(1, +req.query.page || 1), size = 12;

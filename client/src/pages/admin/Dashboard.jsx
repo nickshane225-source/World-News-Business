@@ -2,10 +2,34 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   RefreshCw, CheckCircle2, Clock, CalendarClock, Sparkles,
-  AlertTriangle, Activity, Layers, Cpu, ArrowUpRight
+  AlertTriangle, Activity, Cpu, ArrowUpRight, Globe, Users, Eye, Timer, Play
 } from "lucide-react";
 import { api, fmt } from "../../api.js";
 import { Button, Badge, Card, Skeleton, useToast } from "../../components/ui.jsx";
+
+function countryFlag(code = "US") {
+  const c = String(code || "US").toUpperCase();
+  if (c.length !== 2) return "🌐";
+  return String.fromCodePoint(...[...c].map((ch) => 127397 + ch.charCodeAt(0)));
+}
+
+const INTERVAL_OPTIONS = [
+  { value: 10, label: "Every 10m" },
+  { value: 20, label: "Every 20m" },
+  { value: 30, label: "Every 30m" },
+  { value: 40, label: "Every 40m" },
+  { value: 60, label: "Every 1 Hour" },
+  { value: 0, label: "Daily Quota Mode" },
+];
+
+const DELAY_OPTIONS = [
+  { value: 0, label: "Publish Immediately" },
+  { value: 10, label: "10m Later" },
+  { value: 20, label: "20m Later" },
+  { value: 30, label: "30m Later" },
+  { value: 40, label: "40m Later" },
+  { value: 60, label: "1 Hour Later" },
+];
 
 function Sparkline({ points = [2, 4, 3, 6, 5, 8, 7], color = "#6366f1" }) {
   const max = Math.max(...points, 1);
@@ -59,6 +83,8 @@ export default function Dashboard() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [savingTimer, setSavingTimer] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   const load = async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -77,8 +103,38 @@ export default function Dashboard() {
   useEffect(() => {
     load();
     const t = setInterval(() => load(false), 15000);
-    return () => clearInterval(t);
+    const clock = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => {
+      clearInterval(t);
+      clearInterval(clock);
+    };
   }, []);
+
+  const updateTimerSetting = async (patch, label) => {
+    setSavingTimer(true);
+    try {
+      await api("/admin/settings", { method: "PUT", body: patch });
+      toast(label, "success");
+      await load(false);
+    } catch (e) {
+      toast(e.message || "Failed to update timer setting", "error");
+    } finally {
+      setSavingTimer(false);
+    }
+  };
+
+  const triggerAutoPostNow = async () => {
+    setSavingTimer(true);
+    try {
+      const r = await api("/admin/automation/run-now", { method: "POST" });
+      toast(r.message || "Triggered automatic AI post", "info");
+      await load(false);
+    } catch (e) {
+      toast(e.message || "Failed to trigger automation", "error");
+    } finally {
+      setSavingTimer(false);
+    }
+  };
 
   const sevenDayData = useMemo(() => {
     const days = [];
@@ -132,16 +188,32 @@ export default function Dashboard() {
   const ringOffset = ringCircumference - (pct / 100) * ringCircumference;
   const maxBar = Math.max(...sevenDayData.map((x) => x.count), 1);
 
+  const analytics = d.analytics || {
+    activeNow: 0,
+    visitors24h: 0,
+    views24h: 0,
+    totalVisitors: 0,
+    totalViews: 0,
+    countries: [],
+    topPages: [],
+    recentVisits: [],
+  };
+
+  const nextRunMs = d.nextAutoRunAt ? new Date(d.nextAutoRunAt).getTime() : 0;
+  const diffSec = nextRunMs > nowMs ? Math.floor((nextRunMs - nowMs) / 1000) : 0;
+  const countdownMins = Math.floor(diffSec / 60);
+  const countdownSecs = diffSec % 60;
+
   return (
     <div className="space-y-6">
       {/* Top Action Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Newsroom Telemetry
+            Newsroom Telemetry & Live Audience
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Live pipeline health, daily quota progress, and AI generation logs (auto-updates every 15s)
+            Real-time visitor countries, automatic AI post timer (10/20/30/40/60m), and pipeline health
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -192,7 +264,7 @@ export default function Dashboard() {
         <KpiCard
           label="Scheduled Queue"
           value={d.scheduled}
-          sub="Auto-publishes every 1m"
+          sub="Auto-publishes every 30s"
           icon={CalendarClock}
           color="#6366f1"
           spark={[0, 0, 1, 1, 0, 1, d.scheduled]}
@@ -208,6 +280,247 @@ export default function Dashboard() {
           to="/admin/trending"
         />
       </div>
+
+      {/* Automatic AI Post Interval & Publish Delay Control Card */}
+      <Card className="border-indigo-500/20 bg-gradient-to-br from-white via-white to-indigo-50/40 dark:from-ink-900 dark:via-ink-900 dark:to-indigo-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-elev-1">
+              <Timer className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Automatic AI Post Timer & Schedule Delay
+                </h2>
+                <Badge tone={d.automationEnabled ? "PUBLISHED" : "DRAFT"}>
+                  {d.automationEnabled ? "Auto-Timer Active" : "Paused"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Choose how often AI generates a new article (10m / 20m / 30m / 40m / 1h) and whether it publishes immediately or 10m–1h later
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {d.automationEnabled && Number(d.intervalMinutes) > 0 && (
+              <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                Next Auto-Post: {diffSec > 0 ? `${countdownMins}m ${String(countdownSecs).padStart(2, "0")}s` : "Running soon..."}
+              </div>
+            )}
+            <Button variant="primary" size="sm" loading={savingTimer} onClick={triggerAutoPostNow}>
+              <Play className="h-3.5 w-3.5" /> Generate AI Post Now
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-5 lg:grid-cols-2">
+          {/* Option 1: How often AI automatically creates a post */}
+          <div className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              1. AI Auto-Generation Frequency (Every 10 / 20 / 30 / 40 / 60m)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {INTERVAL_OPTIONS.map((opt) => {
+                const active = Number(d.intervalMinutes ?? 20) === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={savingTimer}
+                    onClick={() =>
+                      updateTimerSetting(
+                        { interval_minutes: opt.value, automation_enabled: true },
+                        `Auto-post interval set to ${opt.label}`
+                      )
+                    }
+                    className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                      active
+                        ? "bg-indigo-600 text-white shadow-elev-1"
+                        : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-ink-950 dark:text-slate-300 dark:ring-slate-800 dark:hover:bg-ink-800"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Option 2: Publish immediately or 10/20/30/40/60m later */}
+          <div className="space-y-2">
+            <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              2. Auto-Publish Timing (Immediate or 10 / 20 / 30 / 40m / 1h Later)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {DELAY_OPTIONS.map((opt) => {
+                const active = Number(d.publishDelayMinutes ?? 0) === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={savingTimer}
+                    onClick={() =>
+                      updateTimerSetting(
+                        { publish_delay_minutes: opt.value, mode: "auto" },
+                        `Auto-publish timing set to ${opt.label}`
+                      )
+                    }
+                    className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                      active
+                        ? "bg-emerald-600 text-white shadow-elev-1"
+                        : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-ink-950 dark:text-slate-300 dark:ring-slate-800 dark:hover:bg-ink-800"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Live Visitor & Country Analytics Section */}
+      <Card className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Globe className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                Website Visitors & Country Traffic
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Real-time audience analytics across your public website
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            {analytics.activeNow} Online Now (Last 5m)
+          </div>
+        </div>
+
+        {/* Visitor Mini KPIs */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-ink-950">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <Users className="h-3.5 w-3.5 text-emerald-500" /> Online Right Now
+            </span>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900 dark:text-white">{analytics.activeNow}</p>
+            <span className="text-[11px] text-slate-500">Active visitors in last 5 min</span>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-ink-950">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <Users className="h-3.5 w-3.5 text-indigo-500" /> Visitors (24h)
+            </span>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900 dark:text-white">{analytics.visitors24h}</p>
+            <span className="text-[11px] text-slate-500">{analytics.totalVisitors} total unique visitors</span>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-ink-950">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <Eye className="h-3.5 w-3.5 text-sky-500" /> Page Views (24h)
+            </span>
+            <p className="mt-1.5 text-2xl font-extrabold text-slate-900 dark:text-white">{analytics.views24h}</p>
+            <span className="text-[11px] text-slate-500">{analytics.totalViews} all-time page views</span>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-ink-950">
+            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <Globe className="h-3.5 w-3.5 text-amber-500" /> Top Country
+            </span>
+            <p className="mt-1.5 text-lg font-extrabold text-slate-900 dark:text-white truncate">
+              {analytics.countries[0]
+                ? `${countryFlag(analytics.countries[0].code)} ${analytics.countries[0].name}`
+                : "No visits yet"}
+            </p>
+            <span className="text-[11px] text-slate-500">
+              {analytics.countries.length} {analytics.countries.length === 1 ? "country" : "countries"} detected
+            </span>
+          </div>
+        </div>
+
+        {/* Countries Breakdown + Top Pages */}
+        <div className="grid gap-6 lg:grid-cols-12">
+          {/* Visitors by Country Table */}
+          <div className="lg:col-span-7 space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Visitors by Country
+            </h3>
+            {analytics.countries.length > 0 ? (
+              <div className="space-y-2.5">
+                {analytics.countries.slice(0, 8).map((c) => (
+                  <div
+                    key={c.code}
+                    className="rounded-xl border border-slate-100 bg-white p-3 dark:border-slate-800 dark:bg-ink-950"
+                  >
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="flex items-center gap-2 text-slate-900 dark:text-white">
+                        <span className="text-base">{countryFlag(c.code)}</span>
+                        <span>{c.name}</span>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          {c.code}
+                        </span>
+                      </span>
+                      <span className="text-slate-600 dark:text-slate-300">
+                        <strong>{c.visitors}</strong> {c.visitors === 1 ? "user" : "users"} · {c.views} views ({c.pct}%)
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-emerald-500 transition-all duration-500"
+                        style={{ width: `${Math.max(4, c.pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400 dark:border-slate-800">
+                No visitor traffic recorded yet. Open the public homepage to record your first visit!
+              </div>
+            )}
+          </div>
+
+          {/* Top Visited Pages & Recent Visits */}
+          <div className="lg:col-span-5 space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Most Visited Pages & Live Stream
+            </h3>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-ink-950 space-y-2.5">
+              {analytics.topPages.length > 0 ? (
+                analytics.topPages.map((p) => (
+                  <div key={p.path} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate font-mono text-slate-700 dark:text-slate-300">{p.path}</span>
+                    <Badge tone="SCHEDULED">{p.views} views</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 py-4 text-center">No page views yet</p>
+              )}
+            </div>
+
+            {analytics.recentVisits.length > 0 && (
+              <div className="rounded-2xl border border-slate-100 bg-white p-3.5 dark:border-slate-800 dark:bg-ink-950 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Recent Visitor Hits</p>
+                {analytics.recentVisits.slice(0, 4).map((rv, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <span className="truncate">
+                      {countryFlag(rv.code)} <strong>{rv.name}</strong> → <code className="text-[11px]">{rv.path}</code>
+                    </span>
+                    <span className="shrink-0 text-[10px] text-slate-400">{fmt(rv.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Daily Target Ring + 7-Day Output Chart + Pipeline Status */}
       <div className="grid gap-6 lg:grid-cols-12">
@@ -254,7 +567,9 @@ export default function Dashboard() {
                 {Math.max(0, d.dailyTarget - d.today)} dispatches remaining today
               </p>
               <p className="text-slate-500 dark:text-slate-400">
-                Scheduled worker paces generation evenly across your active window.
+                {Number(d.intervalMinutes) > 0
+                  ? `Auto-generates 1 post every ${d.intervalMinutes} min.`
+                  : "Scheduled worker paces generation evenly across your active window."}
               </p>
               <Link to="/admin/settings" className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
                 Adjust target <ArrowUpRight className="h-3.5 w-3.5" />

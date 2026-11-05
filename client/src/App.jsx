@@ -14,11 +14,37 @@ import Settings from "./pages/admin/Settings.jsx";
 
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
 
+function getVisitorId() {
+  try {
+    let vid = localStorage.getItem("wn_vid");
+    if (!vid) {
+      vid = "v_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+      localStorage.setItem("wn_vid", vid);
+    }
+    return vid;
+  } catch {
+    return "";
+  }
+}
+
 function GoogleAnalyticsTracker() {
   const location = useLocation();
   const isInitialLoad = useRef(true);
 
   useEffect(() => {
+    if (!location.pathname.startsWith("/admin")) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      fetch("/api/public/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: location.pathname,
+          tz,
+          visitorId: getVisitorId(),
+        }),
+      }).catch(() => {});
+    }
+
     if (!GA_MEASUREMENT_ID || !import.meta.env.PROD) return;
     if (isInitialLoad.current) {
       isInitialLoad.current = false;

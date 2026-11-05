@@ -6,6 +6,7 @@ import { enqueue } from "../queues/index.js";
 import { getSettings, updateSettings } from "../services/settings.service.js";
 import { publishArticle, clean, qualityCheck } from "../services/pipeline.service.js";
 import { generateFeaturedImage } from "../services/image.service.js";
+import { getVisitorStats } from "../services/analytics.service.js";
 import { tick } from "../workers/index.js";
 
 const r = Router();
@@ -16,13 +17,22 @@ r.get("/dashboard", wrap(async (_, res) => {
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const by = (s) => (rows || []).filter((x) => x.status === s).length;
   const settings = await getSettings();
-  const { data: logs } = await supabase.from("generation_logs").select("*").order("created_at", { ascending: false }).limit(15);
-  const { count: failures24h } = await supabase.from("generation_logs")
+  const { data: logs } = await supabase
+    .from("generation_logs")
+    .select("*")
+    .in("kind", ["article", "research"])
+    .order("created_at", { ascending: false })
+    .limit(15);
+  const { count: failures24h } = await supabase
+    .from("generation_logs")
     .select("id", { count: "exact", head: true })
+    .in("kind", ["article", "research"])
     .eq("ok", false)
     .gte("created_at", new Date(Date.now() - 864e5).toISOString());
   const { count: newTopics } = await supabase.from("trending_topics").select("id", { count: "exact", head: true }).eq("status", "new");
   const { count: generatingTopics } = await supabase.from("trending_topics").select("id", { count: "exact", head: true }).eq("status", "generating");
+  const analytics = await getVisitorStats();
+
   res.json({
     total: rows?.length || 0,
     published: by("PUBLISHED"),
@@ -32,10 +42,17 @@ r.get("/dashboard", wrap(async (_, res) => {
     drafts: by("DRAFT"),
     today: (rows || []).filter((x) => new Date(x.created_at) >= start).length,
     dailyTarget: settings.daily_target,
+    automationEnabled: settings.automation_enabled,
+    mode: settings.mode,
+    intervalMinutes: settings.interval_minutes,
+    publishDelayMinutes: settings.publish_delay_minutes,
+    lastAutoRunAt: settings.last_auto_run_at,
+    nextAutoRunAt: settings.next_auto_run_at,
     newTopics: newTopics || 0,
     generatingTopics: generatingTopics || 0,
     logs: logs || [],
     failures24h: failures24h || 0,
+    analytics,
   });
 }));
 
