@@ -118,6 +118,16 @@ export async function checkIntervalTick() {
   try {
     await publishScheduled();
     const s = await getSettings();
+
+    // 1) Hourly Automatic Topic Discovery Check (every 60 minutes)
+    const lastDiscoveryMs = s.last_topic_discovery_at ? new Date(s.last_topic_discovery_at).getTime() : 0;
+    const elapsedDiscoveryMs = Date.now() - lastDiscoveryMs;
+    if (elapsedDiscoveryMs >= 60 * 60 * 1000) {
+      console.log("[Worker] 1 hour elapsed since last topic discovery — running discoverTopics()...");
+      await discoverTopics(s).catch((err) => console.warn("[Worker] Hourly topic discovery error:", err.message));
+    }
+
+    // 2) Interval Auto-Post Check (10 / 20 / 30 / 40 / 60 minutes)
     const intervalMins = Number(s.interval_minutes || 0);
     if (!s.automation_enabled || intervalMins <= 0) return;
 

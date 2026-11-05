@@ -48,6 +48,8 @@ r.get("/dashboard", wrap(async (_, res) => {
     publishDelayMinutes: settings.publish_delay_minutes,
     lastAutoRunAt: settings.last_auto_run_at,
     nextAutoRunAt: settings.next_auto_run_at,
+    lastTopicDiscoveryAt: settings.last_topic_discovery_at,
+    nextTopicDiscoveryAt: settings.next_topic_discovery_at,
     newTopics: newTopics || 0,
     generatingTopics: generatingTopics || 0,
     logs: logs || [],

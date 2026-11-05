@@ -3,6 +3,7 @@ import { Type } from "@google/genai";
 import { ai, textModel } from "../lib/gemini.js";
 import { supabase } from "../lib/supabase.js";
 import { similarity } from "../lib/text.js";
+import { saveSchedulerExtra } from "./settings.service.js";
 
 const parser = new XMLParser({ ignoreAttributes: true, processEntities: false });
 const FEEDS = ["TECHNOLOGY", "NATION", "BUSINESS", "SCIENCE"].map(
@@ -70,6 +71,7 @@ ${signals.map((s, i) => `${i + 1}. [${s.source}] ${s.title}`).join("\n")}`,
       fresh.push({ ...f, source: "gemini+news" });
     }
     if (fresh.length) await supabase.from("trending_topics").insert(fresh);
+    await saveSchedulerExtra({ last_topic_discovery_at: new Date().toISOString() }).catch(() => {});
     await supabase.from("generation_logs").insert({
       kind: "research",
       topic: `Discovered ${fresh.length} new topic(s)`,

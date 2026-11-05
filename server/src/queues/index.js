@@ -46,12 +46,12 @@ export async function enqueue(name, data = {}, opts = {}) {
   return { id: `queued-${Date.now()}`, mode: "deferred" };
 }
 
-// Recurring jobs: research every 3h, automation tick every 30 min, scheduled publisher every 1 min
+// Recurring jobs: research every 1h, automation tick every 30 min, scheduled publisher every 1 min
 export async function startSchedulers() {
   const q = getPipelineQueue();
   if (q && connection.status === "ready") {
     try {
-      await q.upsertJobScheduler("research-3h", { every: 3 * 60 * 60 * 1000 }, { name: "research" });
+      await q.upsertJobScheduler("research-1h", { every: 60 * 60 * 1000 }, { name: "research" });
       await q.upsertJobScheduler("tick-30m", { every: 30 * 60 * 1000 }, { name: "tick", opts: { attempts: 1 } });
       await q.upsertJobScheduler("publish-due-1m", { every: 60 * 1000 }, { name: "publishScheduled", opts: { attempts: 1 } });
       return;
@@ -62,7 +62,7 @@ export async function startSchedulers() {
   // In-process recurring timers when Redis is not attached (e.g. single Web Service on Render)
   setInterval(() => {
     if (fallbackRunner) Promise.resolve(fallbackRunner({ name: "research", data: {} })).catch(() => {});
-  }, 3 * 60 * 60 * 1000).unref();
+  }, 60 * 60 * 1000).unref();
   setInterval(() => {
     if (fallbackRunner) Promise.resolve(fallbackRunner({ name: "tick", data: {} })).catch(() => {});
   }, 30 * 60 * 1000).unref();

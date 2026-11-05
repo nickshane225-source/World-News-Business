@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Sparkles, RefreshCw, Search, PenTool, SkipForward, RotateCcw,
-  Loader2, CheckSquare, PlusCircle
+  Loader2, CheckSquare, PlusCircle, Clock
 } from "lucide-react";
 import { api, fmt } from "../../api.js";
 import {
@@ -151,7 +151,10 @@ export default function Trending() {
             Discover real-time U.S. news trends, score editorial angles, or pitch a custom topic
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 px-3 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-300">
+            <Clock className="h-3.5 w-3.5 text-indigo-500" /> Auto-discovers every 1 hour
+          </span>
           <Button variant="ghost" size="sm" onClick={() => load(false)} disabled={busy}>
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>

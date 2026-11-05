@@ -37,6 +37,7 @@ async function getSchedulerExtra() {
           ? Number(parsed.publish_delay_minutes)
           : 0,
         last_auto_run_at: parsed.last_auto_run_at || null,
+        last_topic_discovery_at: parsed.last_topic_discovery_at || null,
       };
       return cachedExtra;
     }
@@ -49,6 +50,7 @@ async function getSchedulerExtra() {
       interval_minutes: 20,
       publish_delay_minutes: 0,
       last_auto_run_at: new Date().toISOString(),
+      last_topic_discovery_at: null,
     };
   }
   return cachedExtra;
@@ -67,6 +69,10 @@ export async function saveSchedulerExtra(patch = {}) {
         : current.publish_delay_minutes,
     last_auto_run_at:
       "last_auto_run_at" in patch ? patch.last_auto_run_at : current.last_auto_run_at,
+    last_topic_discovery_at:
+      "last_topic_discovery_at" in patch
+        ? patch.last_topic_discovery_at
+        : current.last_topic_discovery_at,
   };
 
   if (!VALID_INTERVALS.includes(next.interval_minutes)) {
@@ -114,12 +120,17 @@ export async function getSettings() {
       ? new Date(lastRunMs + extra.interval_minutes * 60 * 1000).toISOString()
       : null;
 
+  const lastDiscoveryMs = extra.last_topic_discovery_at ? new Date(extra.last_topic_discovery_at).getTime() : 0;
+  const nextDiscoveryAt = new Date(lastDiscoveryMs + 60 * 60 * 1000).toISOString();
+
   return {
     ...data,
     interval_minutes: extra.interval_minutes,
     publish_delay_minutes: extra.publish_delay_minutes,
     last_auto_run_at: extra.last_auto_run_at,
     next_auto_run_at: nextAutoRunAt,
+    last_topic_discovery_at: extra.last_topic_discovery_at,
+    next_topic_discovery_at: nextDiscoveryAt,
   };
 }
 
@@ -210,11 +221,16 @@ export async function updateSettings(patch) {
       ? new Date(lastRunMs + extra.interval_minutes * 60 * 1000).toISOString()
       : null;
 
+  const lastDiscoveryMs = extra.last_topic_discovery_at ? new Date(extra.last_topic_discovery_at).getTime() : 0;
+  const nextDiscoveryAt = new Date(lastDiscoveryMs + 60 * 60 * 1000).toISOString();
+
   return {
     ...data,
     interval_minutes: extra.interval_minutes,
     publish_delay_minutes: extra.publish_delay_minutes,
     last_auto_run_at: extra.last_auto_run_at,
     next_auto_run_at: nextAutoRunAt,
+    last_topic_discovery_at: extra.last_topic_discovery_at,
+    next_topic_discovery_at: nextDiscoveryAt,
   };
 }
