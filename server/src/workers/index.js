@@ -73,11 +73,13 @@ export async function tick() {
       ? 1
       : Math.min(remaining, Math.max(1, Math.ceil(remaining / slots)));
 
+  // ALWAYS select the highest-scoring fresh trending topic (score 0-100 descending)
   let { data: topics } = await supabase
     .from("trending_topics")
-    .select("id")
+    .select("id,title,score,category")
     .eq("status", "new")
     .order("score", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(batch);
 
   if (!topics?.length) {
@@ -85,9 +87,10 @@ export async function tick() {
       await discoverTopics(s);
       const refreshed = await supabase
         .from("trending_topics")
-        .select("id")
+        .select("id,title,score,category")
         .eq("status", "new")
         .order("score", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(batch);
       topics = refreshed.data || [];
     } catch {
@@ -102,13 +105,15 @@ export async function tick() {
   }
 
   for (const t of topics) {
+    console.log(`[Worker] Auto-generating top-scoring trend: "${t.title}" (Score: ${t.score || "N/A"}, Category: ${t.category})`);
     await enqueue("generateTopic", { topicId: t.id }, { jobId: `gen-${t.id}-${Date.now()}` });
   }
+  const topNames = topics.map((t) => `"${t.title}" (score: ${t.score})`).join(", ");
   const extra =
     publishedDue + publishedApproved > 0
       ? ` (also published ${publishedDue + publishedApproved} article(s))`
       : "";
-  return `Queued ${topics.length} topic(s) for AI article generation${extra}.`;
+  return `Queued highest-scoring trend: ${topNames} for AI article generation${extra}.`;
 }
 
 let intervalCheckRunning = false;

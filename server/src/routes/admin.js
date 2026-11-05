@@ -31,6 +31,14 @@ r.get("/dashboard", wrap(async (_, res) => {
     .gte("created_at", new Date(Date.now() - 864e5).toISOString());
   const { count: newTopics } = await supabase.from("trending_topics").select("id", { count: "exact", head: true }).eq("status", "new");
   const { count: generatingTopics } = await supabase.from("trending_topics").select("id", { count: "exact", head: true }).eq("status", "generating");
+  const { data: topNewTopic } = await supabase
+    .from("trending_topics")
+    .select("id,title,category,score")
+    .eq("status", "new")
+    .order("score", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
   const analytics = await getVisitorStats();
 
   res.json({
@@ -50,6 +58,7 @@ r.get("/dashboard", wrap(async (_, res) => {
     nextAutoRunAt: settings.next_auto_run_at,
     lastTopicDiscoveryAt: settings.last_topic_discovery_at,
     nextTopicDiscoveryAt: settings.next_topic_discovery_at,
+    topNewTopic: topNewTopic || null,
     newTopics: newTopics || 0,
     generatingTopics: generatingTopics || 0,
     logs: logs || [],

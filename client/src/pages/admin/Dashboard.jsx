@@ -380,6 +380,27 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Highest-Scoring Trend Priority Banner */}
+        {d.topNewTopic && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-500/25 bg-indigo-500/5 px-4 py-3 text-xs dark:border-indigo-500/30 dark:bg-indigo-950/20">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-600 text-[11px] font-black text-white shadow-elev-1">
+                {d.topNewTopic.score}
+              </span>
+              <div>
+                <span className="font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                  Top Priority Trend (Highest Score: {d.topNewTopic.score}/100):
+                </span>{" "}
+                <strong className="text-slate-900 dark:text-white">"{d.topNewTopic.title}"</strong>{" "}
+                <span className="text-slate-500">({d.topNewTopic.category})</span>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              ● Next in line for auto-post
+            </span>
+          </div>
+        )}
       </Card>
 
       {/* Live Visitor & Country Analytics Section */}
