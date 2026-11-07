@@ -77,4 +77,13 @@ if (fs.existsSync(dist)) {
   });
 }
 
+// Global error handler for JSON parse errors & uncaught exceptions
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || "Internal server error" });
+});
+
 export default app;

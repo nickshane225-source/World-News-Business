@@ -105,7 +105,7 @@ r.get("/articles", wrap(async (req, res) => {
   res.json((await q).data || []);
 }));
 r.post("/articles/publish-approved", wrap(async (req, res) => {
-  const statuses = req.body?.includePending ? ["APPROVED", "PENDING_APPROVAL"] : ["APPROVED", "PENDING_APPROVAL"];
+  const statuses = req.body?.includePending ? ["APPROVED", "PENDING_APPROVAL"] : ["APPROVED"];
   const { data: waiting } = await supabase.from("articles").select("id").in("status", statuses);
   let count = 0;
   for (const a of waiting || []) {
@@ -172,14 +172,29 @@ r.post("/articles/:id/regenerate-image", wrap(async (req, res) => {
     .single();
   res.json({ ...updated, sources: sources || [] });
 }));
-r.post("/articles/:id/approve", wrap(async (req, res) => res.json((await supabase.from("articles").update({ status: "APPROVED", updated_at: new Date().toISOString() }).eq("id", req.params.id).select().single()).data)));
-r.post("/articles/:id/publish", wrap(async (req, res) => res.json((await publishArticle(req.params.id)).data)));
-r.post("/articles/:id/schedule", wrap(async (req, res) => {
-  const when = new Date(req.body.scheduled_at);
-  if (isNaN(when)) return res.status(400).json({ error: "Invalid schedule date/time" });
-  res.json((await supabase.from("articles").update({ status: "SCHEDULED", scheduled_at: when.toISOString(), updated_at: new Date().toISOString() }).eq("id", req.params.id).select().single()).data);
+r.post("/articles/:id/approve", wrap(async (req, res) => {
+  const { data, error } = await supabase.from("articles").update({ status: "APPROVED", updated_at: new Date().toISOString() }).eq("id", req.params.id).select().maybeSingle();
+  if (error || !data) return res.status(404).json({ error: "Article not found" });
+  res.json(data);
 }));
-r.post("/articles/:id/unpublish", wrap(async (req, res) => res.json((await supabase.from("articles").update({ status: "DRAFT", published_at: null, scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", req.params.id).select().single()).data)));
+r.post("/articles/:id/publish", wrap(async (req, res) => {
+  const result = await publishArticle(req.params.id);
+  if (!result?.data) return res.status(404).json({ error: "Article not found" });
+  res.json(result.data);
+}));
+r.post("/articles/:id/schedule", wrap(async (req, res) => {
+  if (!req.body?.scheduled_at) return res.status(400).json({ error: "scheduled_at is required" });
+  const when = new Date(req.body.scheduled_at);
+  if (isNaN(when.getTime())) return res.status(400).json({ error: "Invalid schedule date/time" });
+  const { data, error } = await supabase.from("articles").update({ status: "SCHEDULED", scheduled_at: when.toISOString(), updated_at: new Date().toISOString() }).eq("id", req.params.id).select().maybeSingle();
+  if (error || !data) return res.status(404).json({ error: "Article not found" });
+  res.json(data);
+}));
+r.post("/articles/:id/unpublish", wrap(async (req, res) => {
+  const { data, error } = await supabase.from("articles").update({ status: "DRAFT", published_at: null, scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", req.params.id).select().maybeSingle();
+  if (error || !data) return res.status(404).json({ error: "Article not found" });
+  res.json(data);
+}));
 r.delete("/articles/:id", wrap(async (req, res) => { await supabase.from("articles").delete().eq("id", req.params.id); res.json({ ok: true }); }));
 
 export default r;

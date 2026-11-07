@@ -156,8 +156,13 @@ export async function updateSettings(patch) {
       throw new Error("Active to hour must be between 1 and 24");
     clean.active_to = n;
   }
-  if ("active_from" in clean && "active_to" in clean && clean.active_from >= clean.active_to) {
-    throw new Error("'Active from' hour must be earlier than 'Active to' hour");
+  if ("active_from" in clean || "active_to" in clean) {
+    const { data: current } = await supabase.from("automation_settings").select("active_from,active_to").eq("id", 1).single();
+    const from = "active_from" in clean ? clean.active_from : (current?.active_from ?? 8);
+    const to = "active_to" in clean ? clean.active_to : (current?.active_to ?? 22);
+    if (from >= to) {
+      throw new Error("'Active from' hour must be earlier than 'Active to' hour");
+    }
   }
   if ("model" in clean) {
     clean.model = String(clean.model || "").trim();

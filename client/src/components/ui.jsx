@@ -291,7 +291,9 @@ export function EditorialImage({ src, alt, category = "Technology", className = 
 /* ---------------- Time & Reading Helpers ---------------- */
 export function timeAgo(dateStr) {
   if (!dateStr) return "Recently";
-  const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
+  const dt = new Date(dateStr);
+  if (isNaN(dt.getTime())) return "Recently";
+  const diff = Math.max(0, Date.now() - dt.getTime());
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m ago`;
@@ -299,7 +301,7 @@ export function timeAgo(dateStr) {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function estimateReadTime(article) {

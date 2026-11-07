@@ -249,12 +249,17 @@ export default function ArticleEditor() {
               <Button
                 variant="ghost"
                 disabled={busy || !when}
-                onClick={() =>
+                onClick={() => {
+                  const target = new Date(when);
+                  if (isNaN(target.getTime())) {
+                    toast("Please enter a valid schedule date and time", "warning");
+                    return;
+                  }
                   run(
-                    post("schedule", { scheduled_at: new Date(when).toISOString() }),
-                    `Scheduled for ${new Date(when).toLocaleString()}`
-                  )
-                }
+                    post("schedule", { scheduled_at: target.toISOString() }),
+                    `Scheduled for ${target.toLocaleString()}`
+                  );
+                }}
               >
                 <CalendarClock className="h-4 w-4 text-indigo-500" /> Schedule publish
               </Button>

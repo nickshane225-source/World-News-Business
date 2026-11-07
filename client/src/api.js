@@ -13,4 +13,8 @@ export async function api(path, { method = "GET", body } = {}) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
-export const fmt = (d) => (d ? new Date(d).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—");
+export const fmt = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? "—" : dt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+};
