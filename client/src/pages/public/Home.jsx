@@ -508,7 +508,7 @@ export default function Home() {
         {/* Top Stories Grid */}
         {rest.length > 0 && (
           <section className="mb-14" aria-label="Top stories">
-            <AdSenseBanner className="mb-8" />
+            <AdSenseBanner slot="2637369565" className="mb-8" />
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Latest Dispatches</h2>
               <span className="text-xs font-medium text-slate-400">{rest.length} stories</span>
@@ -543,6 +543,7 @@ export default function Home() {
                 </Link>
               ))}
             </div>
+            <AdSenseBanner slot="2383499952" className="mt-10" />
           </section>
         )}
 
