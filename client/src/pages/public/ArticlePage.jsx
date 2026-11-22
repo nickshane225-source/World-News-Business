@@ -121,16 +121,46 @@ export default function ArticlePage() {
     );
   }
 
-  const ld = {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline: a.title,
-    description: a.meta_description,
-    image: a.featured_image_url ? [a.featured_image_url] : undefined,
-    datePublished: a.published_at,
-    dateModified: a.updated_at || a.published_at,
-    publisher: { "@type": "Organization", name: SITE },
-  };
+  const articleUrl = `${SITE_URL}/a/${a.slug}`;
+  const category = a.category || "News";
+  const schemas = [
+    {
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      mainEntityOfPage: { "@type": "WebPage", "@id": articleUrl },
+      headline: a.title,
+      description: a.meta_description || a.excerpt || "",
+      image: a.featured_image_url ? [a.featured_image_url] : undefined,
+      datePublished: a.published_at,
+      dateModified: a.updated_at || a.published_at,
+      articleSection: category,
+      author: { "@type": "Organization", name: `${SITE} Newsroom`, url: SITE_URL },
+      publisher: { "@type": "Organization", name: SITE, url: SITE_URL },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+        { "@type": "ListItem", position: 2, name: category, item: `${SITE_URL}/?category=${encodeURIComponent(category)}` },
+        { "@type": "ListItem", position: 3, name: a.title, item: articleUrl },
+      ],
+    },
+  ];
+  const validFaqs = Array.isArray(a.faqs)
+    ? a.faqs.filter((f) => f && String(f.question || "").trim() && String(f.answer || "").trim())
+    : [];
+  if (validFaqs.length > 0) {
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: validFaqs.map((f) => ({
+        "@type": "Question",
+        name: String(f.question).trim(),
+        acceptedAnswer: { "@type": "Answer", text: String(f.answer).trim() },
+      })),
+    });
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -148,7 +178,9 @@ export default function ArticlePage() {
       </div>
 
       <Header categories={cats} activeCategory={a.category} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+      {schemas.map((schema, i) => (
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      ))}
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
         {/* Top Breadcrumb */}

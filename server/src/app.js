@@ -7,9 +7,11 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
-import publicRoutes, { sitemap } from "./routes/public.js";
+import publicRoutes, { sitemap, rssFeed } from "./routes/public.js";
 import adminRoutes from "./routes/admin.js";
 import { requireAuth } from "./middleware/auth.js";
+import { supabase } from "./lib/supabase.js";
+import { injectArticleSeo, injectPageSeo } from "./services/seo.service.js";
 
 const ALLOWED_ORIGINS = new Set([
   "https://worldnews.business",
@@ -60,6 +62,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.get("/sitemap.xml", sitemap);
+app.get("/rss.xml", rssFeed);
 app.get("/ads.txt", (_, res) =>
   res
     .type("text/plain")
@@ -74,10 +77,44 @@ app.get("/robots.txt", (_, res) =>
 );
 
 if (fs.existsSync(dist)) {
-  app.get("*", (req, res, next) => {
+  const indexHtmlPath = path.join(dist, "index.html");
+  app.get("*", async (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/assets/")) return next();
     res.setHeader("Cache-Control", "no-cache");
-    res.sendFile(path.join(dist, "index.html"));
+    try {
+      const site = (process.env.SITE_URL || "https://worldnews.business").replace(/\/$/, "");
+      const template = fs.readFileSync(indexHtmlPath, "utf8");
+
+      const articleMatch = req.path.match(/^\/a\/([^/]+)\/?$/);
+      if (articleMatch) {
+        const slug = decodeURIComponent(articleMatch[1]);
+        const { data: article } = await supabase
+          .from("articles")
+          .select("title,slug,meta_title,meta_description,excerpt,category,featured_image_url,published_at,updated_at,faqs")
+          .eq("slug", slug)
+          .eq("status", "PUBLISHED")
+          .maybeSingle();
+
+        if (article) {
+          return res.type("text/html; charset=utf-8").send(injectArticleSeo(template, article, site));
+        }
+        return res.status(404).type("text/html; charset=utf-8").send(template);
+      }
+
+      if (req.path === "/about" || req.path === "/about/") {
+        return res.type("text/html; charset=utf-8").send(
+          injectPageSeo(template, {
+            title: "About & Editorial Policy | World News",
+            description: "Learn about World News editorial standards, multi-source verification process, and AI-assisted journalism disclosure.",
+            url: `${site}/about`,
+          })
+        );
+      }
+
+      return res.type("text/html; charset=utf-8").send(template);
+    } catch {
+      return res.sendFile(indexHtmlPath);
+    }
   });
 }
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import app from "../src/app.js";
 import { updateSettings } from "../src/services/settings.service.js";
+import { buildArticleSchemas, injectArticleSeo } from "../src/services/seo.service.js";
 
 // Helper functions for testing client-side formatting logic in node
 function fmt(d) {
@@ -230,4 +231,69 @@ test("Public API: /api/public/categories and /api/public/track execute successfu
   const trackData = await trackRes.json();
   assert.equal(trackData.ok, true);
   assert.equal(trackData.countryCode, "US");
+});
+
+test("SEO: /rss.xml returns valid RSS 2.0 feed", async () => {
+  const res = await fetch(`${baseUrl}/rss.xml`);
+  assert.equal(res.status, 200);
+  const ct = res.headers.get("content-type") || "";
+  assert.ok(ct.includes("application/rss+xml"));
+  const xml = await res.text();
+  assert.ok(xml.includes('<rss version="2.0"'));
+  assert.ok(xml.includes("<channel>"));
+  assert.ok(xml.includes("/rss.xml"));
+});
+
+test("SEO: buildArticleSchemas & injectArticleSeo produce valid meta tags and JSON-LD", () => {
+  const sample = {
+    title: 'AI Breakthrough & "Next-Gen" Chips',
+    slug: "ai-breakthrough-next-gen-chips",
+    meta_title: "AI Breakthrough Next-Gen Chips",
+    meta_description: "Deep dive into next-gen AI chips.",
+    category: "AI",
+    featured_image_url: "https://worldnews.business/img.webp",
+    published_at: "2026-11-22T12:00:00.000Z",
+    faqs: [{ question: "What is it?", answer: "A new AI chip </script> test." }],
+  };
+
+  const schemas = buildArticleSchemas(sample, "https://worldnews.business");
+  assert.equal(schemas.length, 3);
+  assert.equal(schemas[0]["@type"], "NewsArticle");
+  assert.equal(schemas[1]["@type"], "BreadcrumbList");
+  assert.equal(schemas[2]["@type"], "FAQPage");
+
+  const tpl = `<!doctype html><html><head><title>Default</title><meta name="description" content="Default" /><link rel="canonical" href="https://worldnews.business/" /><meta property="og:type" content="website" /><meta property="og:title" content="Default" /><meta property="og:description" content="Default" /><meta property="og:url" content="https://worldnews.business/" /><meta name="twitter:title" content="Default" /><meta name="twitter:description" content="Default" /></head><body></body></html>`;
+  const html = injectArticleSeo(tpl, sample, "https://worldnews.business");
+
+  assert.ok(html.includes("<title>AI Breakthrough Next-Gen Chips | World News</title>"));
+  assert.ok(html.includes('<link rel="canonical" href="https://worldnews.business/a/ai-breakthrough-next-gen-chips" />'));
+  assert.ok(html.includes('<meta property="og:type" content="article" />'));
+  assert.ok(html.includes('<meta property="og:image" content="https://worldnews.business/img.webp" />'));
+  assert.ok(html.includes('"@type":"BreadcrumbList"'));
+  assert.ok(html.includes('"@type":"FAQPage"'));
+  assert.ok(!html.includes("</script> test"));
+});
+
+test("SEO: SSR meta injection works on live /a/:slug and /about routes", async () => {
+  const expectedSite = (process.env.SITE_URL || "https://worldnews.business").replace(/\/$/, "");
+  const aboutRes = await fetch(`${baseUrl}/about`);
+  assert.equal(aboutRes.status, 200);
+  const aboutHtml = await aboutRes.text();
+  assert.ok(aboutHtml.includes(`href="${expectedSite}/about"`));
+  assert.ok(aboutHtml.includes("<title>About &amp; Editorial Policy | World News</title>"));
+
+  const missingRes = await fetch(`${baseUrl}/a/non-existent-seo-slug-9999`);
+  assert.equal(missingRes.status, 404);
+
+  const listRes = await fetch(`${baseUrl}/api/public/articles?page=1`);
+  const listData = await listRes.json();
+  if (listData.articles?.length > 0) {
+    const first = listData.articles[0];
+    const artRes = await fetch(`${baseUrl}/a/${first.slug}`);
+    assert.equal(artRes.status, 200);
+    const artHtml = await artRes.text();
+    assert.ok(artHtml.includes(`/a/${first.slug}"`));
+    assert.ok(artHtml.includes('"@type":"NewsArticle"'));
+    assert.ok(artHtml.includes('"@type":"BreadcrumbList"'));
+  }
 });

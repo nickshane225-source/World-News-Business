@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { recordVisit } from "../services/analytics.service.js";
+import { escapeXml } from "../services/seo.service.js";
 const r = Router();
 const LIST = "id,title,slug,excerpt,category,featured_image_url,image_alt,published_at";
 
@@ -75,6 +76,51 @@ export async function sitemap(_, res) {
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`);
   } catch (e) {
     res.status(500).send("Error generating sitemap");
+  }
+}
+
+export async function rssFeed(_, res) {
+  try {
+    const site = (process.env.SITE_URL || "https://worldnews.business").replace(/\/$/, "");
+    const { data, error } = await supabase
+      .from("articles")
+      .select("title,slug,excerpt,meta_description,category,featured_image_url,published_at")
+      .eq("status", "PUBLISHED")
+      .order("published_at", { ascending: false })
+      .limit(50);
+    if (error) return res.status(500).send("Error generating RSS feed");
+
+    const items = (data || [])
+      .map((a) => {
+        const link = `${site}/a/${a.slug}`;
+        const pubDate =
+          a.published_at && !isNaN(new Date(a.published_at).getTime())
+            ? `<pubDate>${new Date(a.published_at).toUTCString()}</pubDate>`
+            : "";
+        const category = a.category ? `<category>${escapeXml(a.category)}</category>` : "";
+        const enclosure = a.featured_image_url
+          ? `<enclosure url="${escapeXml(a.featured_image_url)}" type="image/webp" length="0" />`
+          : "";
+        return [
+          "<item>",
+          `<title>${escapeXml(a.title || "")}</title>`,
+          `<link>${escapeXml(link)}</link>`,
+          `<guid isPermaLink="true">${escapeXml(link)}</guid>`,
+          `<description>${escapeXml(a.excerpt || a.meta_description || "")}</description>`,
+          category,
+          pubDate,
+          enclosure,
+          "</item>",
+        ]
+          .filter(Boolean)
+          .join("");
+      })
+      .join("");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>World News — US News, Technology &amp; Business Intelligence</title><link>${escapeXml(site)}/</link><description>Verified U.S. national news, technology analysis, science, and market intelligence.</description><language>en-us</language><lastBuildDate>${new Date().toUTCString()}</lastBuildDate><atom:link href="${escapeXml(site)}/rss.xml" rel="self" type="application/rss+xml" />${items}</channel></rss>`;
+    res.type("application/rss+xml; charset=utf-8").send(xml);
+  } catch (e) {
+    res.status(500).send("Error generating RSS feed");
   }
 }
 export default r;
