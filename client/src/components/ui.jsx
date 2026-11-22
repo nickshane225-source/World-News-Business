@@ -317,15 +317,15 @@ export function estimateSourceCount(article) {
   return 3 + (seed % 4);
 }
 
-/* ---------------- Google AdSense Responsive Unit ---------------- */
-export function AdSenseBanner({ format = "auto", className = "" }) {
+/* ---------------- Google AdSense Responsive Unit (Worldnews Ads 1) ---------------- */
+export function AdSenseBanner({ slot = "2637369565", format = "auto", className = "" }) {
   useEffect(() => {
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch {
       // Ignore if AdSense is blocked by adblocker or still initializing
     }
-  }, []);
+  }, [slot]);
 
   return (
     <div className={`my-6 overflow-hidden text-center ${className}`} aria-label="Advertisement">
@@ -333,6 +333,7 @@ export function AdSenseBanner({ format = "auto", className = "" }) {
         className="adsbygoogle"
         style={{ display: "block" }}
         data-ad-client="ca-pub-7539334939271132"
+        data-ad-slot={slot}
         data-ad-format={format}
         data-full-width-responsive="true"
       />
