@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck, Sparkles, Scale, Mail, FileCheck2, ArrowLeft, Globe } from "lucide-react";
-import { Card, Badge, Button } from "../../components/ui.jsx";
+import { Card, Badge, Button, AdSenseBanner } from "../../components/ui.jsx";
 import { Header, Footer, SITE, SITE_URL, setSeoMeta } from "./Home.jsx";
 
 export default function AboutPage() {
@@ -112,6 +112,8 @@ export default function AboutPage() {
             </Link>
           </div>
         </div>
+
+        <AdSenseBanner slot="8757336618" className="mt-10" />
       </main>
 
       <Footer />

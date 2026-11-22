@@ -495,7 +495,8 @@ export default function Home() {
                   ))}
                 </ol>
               </div>
-              <div className="mt-6 rounded-xl bg-slate-50 p-3.5 text-xs text-slate-500 dark:bg-ink-950 dark:text-slate-400">
+              <AdSenseBanner slot="8757336618" className="my-4" />
+              <div className="mt-2 rounded-xl bg-slate-50 p-3.5 text-xs text-slate-500 dark:bg-ink-950 dark:text-slate-400">
                 <p className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 text-indigo-500" /> Editorial Standards
                 </p>
