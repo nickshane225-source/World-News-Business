@@ -604,6 +604,8 @@ export default function Home() {
             </Button>
           </div>
         )}
+
+        <AdSenseBanner slot="2453536735" className="mt-12" />
       </main>
 
       <Footer />

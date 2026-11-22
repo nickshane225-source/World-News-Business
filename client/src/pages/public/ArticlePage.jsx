@@ -406,6 +406,8 @@ export default function ArticlePage() {
             </div>
           </section>
         )}
+
+        <AdSenseBanner slot="2453536735" className="mt-12" />
       </main>
 
       <Footer />
