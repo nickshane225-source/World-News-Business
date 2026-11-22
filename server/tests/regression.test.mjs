@@ -135,7 +135,7 @@ test("Static & SEO files: sitemap.xml, ads.txt, robots.txt work correctly", asyn
   const adsRes = await fetch(`${baseUrl}/ads.txt`);
   assert.equal(adsRes.status, 200);
   const adsText = await adsRes.text();
-  assert.ok(adsText.includes("pub-1052993488526571"));
+  assert.ok(adsText.includes("pub-7539334939271132"));
 
   // Robots.txt
   const robotsRes = await fetch(`${baseUrl}/robots.txt`);

@@ -61,7 +61,11 @@ app.use("/api/public", publicRoutes);
 app.use("/api/admin", requireAuth, adminRoutes);
 app.get("/sitemap.xml", sitemap);
 app.get("/ads.txt", (_, res) =>
-  res.type("text/plain").send("google.com, pub-1052993488526571, DIRECT, f08c47fec0942fa0\n")
+  res
+    .type("text/plain")
+    .send(
+      "google.com, pub-7539334939271132, DIRECT, f08c47fec0942fa0\ngoogle.com, pub-1052993488526571, DIRECT, f08c47fec0942fa0\n"
+    )
 );
 app.get("/robots.txt", (_, res) =>
   res

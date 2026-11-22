@@ -332,7 +332,7 @@ export function AdSenseBanner({ format = "auto", className = "" }) {
       <ins
         className="adsbygoogle"
         style={{ display: "block" }}
-        data-ad-client="ca-pub-1052993488526571"
+        data-ad-client="ca-pub-7539334939271132"
         data-ad-format={format}
         data-full-width-responsive="true"
       />
