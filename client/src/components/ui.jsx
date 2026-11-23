@@ -230,6 +230,7 @@ const CATEGORY_GRADIENTS = {
   Business: "from-emerald-900 via-slate-900 to-teal-950",
   Consumer: "from-blue-900 via-indigo-950 to-slate-900",
   Culture: "from-fuchsia-900 via-slate-900 to-indigo-950",
+  Sports: "from-orange-900 via-slate-900 to-amber-950",
 };
 
 export function isWatermarkedUrl(url) {

@@ -43,6 +43,7 @@ const CATEGORY_QUERIES = {
   science: ["laboratory scientist microscope", "scientific research cleanroom", "medical laboratory"],
   health: ["modern pharmacy medicine", "hospital doctor clinic", "pharmaceutical medicine bottles"],
   culture: ["concert crowd stage", "video game controller console", "movie cinema theater"],
+  sports: ["sports stadium lights crowd", "basketball arena game court", "soccer stadium field night"],
   world: ["modern city street skyline", "international summit flags", "modern airport terminal"],
   finance: ["stock exchange trading floor", "financial district skyline", "banking office corporate"],
 };

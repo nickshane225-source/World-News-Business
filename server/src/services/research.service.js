@@ -38,7 +38,7 @@ export async function discoverTopics(settings) {
 From these real headlines, pick up to 20 distinct, high-interest story angles for US readers.
 Merge duplicates about the same story. Skip celebrity gossip, unverified rumors and anything unsafe.
 For each, write an ORIGINAL working title (not a copied headline), a focus keyword, a one-sentence angle,
-a category (Technology, AI, Business, Politics, Science, Culture or Health) and a score 0-100
+a category (Technology, AI, Business, Politics, Science, Culture, Sports or Health) and a score 0-100
 (relevance + freshness + search potential).
 
 HEADLINES:

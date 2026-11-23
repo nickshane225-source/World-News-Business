@@ -9,7 +9,7 @@ import {
 } from "../../components/ui.jsx";
 
 const STATUS_LIST = ["", "new", "generating", "used", "failed", "rejected"];
-const CATEGORIES = ["Technology", "AI", "Science", "Business", "Consumer", "Culture"];
+const CATEGORIES = ["Technology", "AI", "Science", "Business", "Consumer", "Culture", "Sports"];
 
 function ScoreBar({ score = 50 }) {
   const s = Math.min(100, Math.max(0, Number(score) || 0));
