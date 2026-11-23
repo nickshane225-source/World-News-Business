@@ -7,6 +7,8 @@ import { discoverTopics } from "../services/research.service.js";
 import { createArticle, generateFromTopic, publishArticle } from "../services/pipeline.service.js";
 
 export async function publishScheduled() {
+  const settings = await getSettings();
+  if (!settings.automation_enabled) return 0;
   const { data: due } = await supabase
     .from("articles")
     .select("id")
@@ -31,10 +33,10 @@ export async function tick() {
     const { data: waiting } = await supabase
       .from("articles")
       .select("id")
-      .in("status", ["APPROVED", "PENDING_APPROVAL"]);
+      .eq("status", "APPROVED");
     for (const a of waiting || []) {
-      await publishArticle(a.id, ["APPROVED"]);
-      publishedApproved++;
+      const result = await publishArticle(a.id, ["APPROVED"]);
+      if (result.data) publishedApproved++;
     }
   }
 
