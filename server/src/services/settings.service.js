@@ -211,15 +211,6 @@ export async function updateSettings(patch) {
       ? await saveSchedulerExtra(extraPatch)
       : await getSchedulerExtra();
 
-  // When Automatic Post Approval Mode ('auto') is enabled and delay is 0, automatically approve & publish waiting articles
-  if (data.mode === "auto" && extra.publish_delay_minutes === 0) {
-    const now = new Date().toISOString();
-    await supabase
-      .from("articles")
-      .update({ status: "PUBLISHED", published_at: now, scheduled_at: null, updated_at: now })
-      .in("status", ["APPROVED", "PENDING_APPROVAL"]);
-  }
-
   const lastRunMs = extra.last_auto_run_at ? new Date(extra.last_auto_run_at).getTime() : Date.now();
   const nextAutoRunAt =
     data.automation_enabled && extra.interval_minutes > 0

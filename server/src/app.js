@@ -46,8 +46,7 @@ app.use(
       if (
         !origin ||
         ALLOWED_ORIGINS.has(origin) ||
-        origin.endsWith(".onrender.com") ||
-        origin.endsWith(".worldnews.business")
+        (process.env.CORS_ALLOWED_ORIGINS || "").split(",").map((v) => v.trim().replace(/\/$/, "")).filter(Boolean).includes(origin)
       ) {
         return cb(null, true);
       }

@@ -297,3 +297,13 @@ test("SEO: SSR meta injection works on live /a/:slug and /about routes", async (
     assert.ok(artHtml.includes('"@type":"BreadcrumbList"'));
   }
 });
+
+
+test("Password hashing verifies correct passwords and rejects incorrect or malformed hashes", async () => {
+  const { hashAdminPassword, verifyPasswordHash } = await import("../src/lib/password.js");
+  const encoded = await hashAdminPassword("correct horse battery staple");
+  assert.match(encoded, /^scrypt\$16384\$8\$1\$/);
+  assert.equal(await verifyPasswordHash("correct horse battery staple", encoded), true);
+  assert.equal(await verifyPasswordHash("incorrect password", encoded), false);
+  assert.equal(await verifyPasswordHash("correct horse battery staple", "malformed"), false);
+});

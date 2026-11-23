@@ -105,12 +105,12 @@ r.get("/articles", wrap(async (req, res) => {
   res.json((await q).data || []);
 }));
 r.post("/articles/publish-approved", wrap(async (req, res) => {
-  const statuses = req.body?.includePending ? ["APPROVED", "PENDING_APPROVAL"] : ["APPROVED"];
+  const statuses = ["APPROVED"];
   const { data: waiting } = await supabase.from("articles").select("id").in("status", statuses);
   let count = 0;
   for (const a of waiting || []) {
-    await publishArticle(a.id);
-    count++;
+    const result = await publishArticle(a.id, ["APPROVED"]);
+    if (result.data) count++;
   }
   res.json({ ok: true, published: count });
 }));
@@ -178,8 +178,9 @@ r.post("/articles/:id/approve", wrap(async (req, res) => {
   res.json(data);
 }));
 r.post("/articles/:id/publish", wrap(async (req, res) => {
-  const result = await publishArticle(req.params.id);
-  if (!result?.data) return res.status(404).json({ error: "Article not found" });
+  const result = await publishArticle(req.params.id, ["APPROVED"]);
+  if (result.error) return res.status(409).json({ error: result.error.message || "Article cannot be published" });
+  if (!result?.data) return res.status(409).json({ error: "Only approved articles can be published" });
   res.json(result.data);
 }));
 r.post("/articles/:id/schedule", wrap(async (req, res) => {

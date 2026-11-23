@@ -6,7 +6,6 @@ const REQUIRED = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "JWT_SECRET",
   "ADMIN_EMAIL",
-  "ADMIN_PASSWORD",
 ];
 
 // Clean up common copy-paste issues in cloud dashboards (e.g., surrounding quotes or "KEY=value" pasted into the Value field)
@@ -26,6 +25,11 @@ if (process.env.SUPABASE_URL && !/^https?:\/\//i.test(process.env.SUPABASE_URL))
   } else {
     process.env.SUPABASE_URL = "https://rwjknedfmmilevkhjcgb.supabase.co";
   }
+}
+
+if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_PASSWORD) {
+  console.error("Missing admin credential: set ADMIN_PASSWORD_HASH or temporary ADMIN_PASSWORD.");
+  process.exit(1);
 }
 
 for (const k of REQUIRED) {
