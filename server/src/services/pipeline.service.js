@@ -16,12 +16,12 @@ async function log(kind, topic, model, ok, error, t0) {
   await supabase.from("generation_logs").insert({ kind, topic, model, ok, error: error?.slice(0, 500), duration_ms: Date.now() - t0 });
 }
 
-export async function qualityCheck(article, sources) {
+export async function qualityCheck(article, sources, options = {}) {
   const notes = [];
   if (article.word_count < 600) notes.push(`Too short (${article.word_count} words)`);
   if (sources.length < 2) notes.push("Fewer than 2 verifiable sources");
   if (!article.meta_description || article.meta_description.length > 170) notes.push("Bad meta description length");
-  if (!article.featured_image_url) notes.push("Missing featured image");
+  if (options.requireImage !== false && !article.featured_image_url) notes.push("Missing featured image");
   const { data } = await supabase.from("articles").select("id,title").order("created_at", { ascending: false }).limit(300);
   if ((data || []).some((a) => a.id !== article.id && similarity(a.title, article.title) >= 0.7)) notes.push("Possible duplicate of an existing article");
   return { ok: notes.length === 0, notes: notes.join("; ") };
@@ -68,7 +68,7 @@ export async function createArticle({ title, keyword, angle, category, topicId }
       image_alt: (image?.alt || a.imageAlt || a.title).slice(0, 160),
       topic_id: topicId || null, word_count: wordCount(html),
     };
-    const qc = await qualityCheck(row, sources);
+    const qc = await qualityCheck(row, sources, { requireImage: settings.generate_images });
     const delayMins = Number(settings.publish_delay_minutes || 0);
     if (settings.mode === "auto" && qc.ok) {
       if (delayMins > 0) {
