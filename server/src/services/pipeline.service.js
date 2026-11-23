@@ -70,7 +70,7 @@ export async function createArticle({ title, keyword, angle, category, topicId }
     };
     const qc = await qualityCheck(row, sources);
     const delayMins = Number(settings.publish_delay_minutes || 0);
-    if (settings.mode === "auto") {
+    if (settings.mode === "auto" && qc.ok) {
       if (delayMins > 0) {
         row.status = "SCHEDULED";
         row.scheduled_at = new Date(Date.now() + delayMins * 60 * 1000).toISOString();
@@ -110,5 +110,7 @@ export async function generateFromTopic(topicId) {
   }
 }
 
-export const publishArticle = async (id) =>
-  supabase.from("articles").update({ status: "PUBLISHED", published_at: new Date().toISOString(), scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+export const publishArticle = async (id, allowedStatuses = ["APPROVED"]) => {
+  const now = new Date().toISOString();
+  return supabase.from("articles").update({ status: "PUBLISHED", published_at: now, scheduled_at: null, updated_at: now }).eq("id", id).in("status", allowedStatuses).select().maybeSingle();
+};
