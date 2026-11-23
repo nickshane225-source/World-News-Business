@@ -14,16 +14,16 @@ export async function publishScheduled() {
     .lte("scheduled_at", new Date().toISOString());
   let count = 0;
   for (const a of due || []) {
-    await publishArticle(a.id);
+    await publishArticle(a.id, ["SCHEDULED"]);
     count++;
   }
   return count;
 }
 
 export async function tick() {
-  // 1) Always publish due scheduled articles regardless of automation_enabled
-  const publishedDue = await publishScheduled();
   const s = await getSettings();
+  if (!s.automation_enabled) return "Automation is disabled — scheduled publishing and automatic generation are paused.";
+  const publishedDue = await publishScheduled();
 
   // 2) In auto mode (when publish_delay_minutes is 0), automatically approve & publish any waiting articles
   let publishedApproved = 0;
@@ -33,16 +33,9 @@ export async function tick() {
       .select("id")
       .in("status", ["APPROVED", "PENDING_APPROVAL"]);
     for (const a of waiting || []) {
-      await publishArticle(a.id);
+      await publishArticle(a.id, ["APPROVED"]);
       publishedApproved++;
     }
-  }
-
-  if (!s.automation_enabled) {
-    const totalAuto = publishedDue + publishedApproved;
-    return totalAuto > 0
-      ? `Published ${totalAuto} waiting/scheduled article(s). Automation is disabled — enable it in Settings to auto-generate new articles.`
-      : "Automation is disabled — enable 'Enable automatic research & article writing' and Save settings first.";
   }
 
   // 3) Check active hours window
@@ -121,8 +114,9 @@ export async function checkIntervalTick() {
   if (intervalCheckRunning) return;
   intervalCheckRunning = true;
   try {
-    await publishScheduled();
     const s = await getSettings();
+    if (!s.automation_enabled) return;
+    await publishScheduled();
 
     // 1) Hourly Automatic Topic Discovery Check (every 60 minutes)
     const lastDiscoveryMs = s.last_topic_discovery_at ? new Date(s.last_topic_discovery_at).getTime() : 0;
