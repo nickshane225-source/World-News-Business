@@ -179,7 +179,7 @@ r.post("/articles/:id/approve", wrap(async (req, res) => {
 }));
 r.post("/articles/:id/publish", wrap(async (req, res) => {
   const result = await publishArticle(req.params.id, ["APPROVED"]);
-  if (result.error) return res.status(500).json({ error: "Unable to publish article" });
+  if (result.error) return res.status(409).json({ error: result.error.message || "Article cannot be published" });
   if (!result?.data) return res.status(409).json({ error: "Only approved articles can be published" });
   res.json(result.data);
 }));
