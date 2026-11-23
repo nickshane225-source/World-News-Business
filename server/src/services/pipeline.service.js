@@ -111,6 +111,11 @@ export async function generateFromTopic(topicId) {
 }
 
 export const publishArticle = async (id, allowedStatuses = ["APPROVED"]) => {
+  const { data: article, error: readError } = await supabase.from("articles").select("id,status,quality_notes").eq("id", id).maybeSingle();
+  if (readError) return { data: null, error: readError };
+  if (!article) return { data: null, error: null };
+  if (!allowedStatuses.includes(article.status)) return { data: null, error: null };
+  if (article.quality_notes) return { data: null, error: { message: "Article failed quality checks and cannot be published." } };
   const now = new Date().toISOString();
   return supabase.from("articles").update({ status: "PUBLISHED", published_at: now, scheduled_at: null, updated_at: now }).eq("id", id).in("status", allowedStatuses).select().maybeSingle();
 };
